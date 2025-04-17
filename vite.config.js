@@ -15,5 +15,6 @@ export default {
         main: join(dirname(path), "client/index.html"),
       },
     },
+    assetsDir: "assets",
   },
 };

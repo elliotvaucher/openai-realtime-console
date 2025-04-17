@@ -12,51 +12,61 @@ export default function App() {
   const audioElement = useRef(null);
 
   async function startSession() {
-    // Get a session token for OpenAI Realtime API
-    const tokenResponse = await fetch("/token");
-    const data = await tokenResponse.json();
-    const EPHEMERAL_KEY = data.client_secret.value;
+    try {
+      // Get a session token for OpenAI Realtime API
+      const tokenResponse = await fetch("/api/token");
+      const data = await tokenResponse.json();
+      
+      if (data.error) {
+        console.error("Error getting token:", data.error);
+        return;
+      }
+      
+      const EPHEMERAL_KEY = data.client_secret.value;
 
-    // Create a peer connection
-    const pc = new RTCPeerConnection();
+      // Create a peer connection
+      const pc = new RTCPeerConnection();
 
-    // Set up to play remote audio from the model
-    audioElement.current = document.createElement("audio");
-    audioElement.current.autoplay = true;
-    pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
+      // Set up to play remote audio from the model
+      audioElement.current = document.createElement("audio");
+      audioElement.current.autoplay = true;
+      pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
 
-    // Add local audio track for microphone input in the browser
-    const ms = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    pc.addTrack(ms.getTracks()[0]);
+      // Add local audio track for microphone input in the browser
+      const ms = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      pc.addTrack(ms.getTracks()[0]);
 
-    // Set up data channel for sending and receiving events
-    const dc = pc.createDataChannel("oai-events");
-    setDataChannel(dc);
+      // Set up data channel for sending and receiving events
+      const dc = pc.createDataChannel("oai-events");
+      setDataChannel(dc);
 
-    // Start the session using the Session Description Protocol (SDP)
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+      // Start the session using the Session Description Protocol (SDP)
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-    const baseUrl = "https://api.openai.com/v1/realtime";
-    const model = "gpt-4o-mini-realtime-preview-2024-12-17";
-    const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
-      method: "POST",
-      body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${EPHEMERAL_KEY}`,
-        "Content-Type": "application/sdp",
-      },
-    });
+      const baseUrl = "https://api.openai.com/v1/realtime";
+      const model = "gpt-4o-mini-realtime-preview-2024-12-17";
+      const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
+        method: "POST",
+        body: offer.sdp,
+        headers: {
+          Authorization: `Bearer ${EPHEMERAL_KEY}`,
+          "Content-Type": "application/sdp",
+        },
+      });
 
-    const answer = {
-      type: "answer",
-      sdp: await sdpResponse.text(),
-    };
-    await pc.setRemoteDescription(answer);
+      const answer = {
+        type: "answer",
+        sdp: await sdpResponse.text(),
+      };
+      await pc.setRemoteDescription(answer);
 
-    peerConnection.current = pc;
+      peerConnection.current = pc;
+    } catch (error) {
+      console.error("Error starting session:", error);
+    }
   }
 
   // Stop current session, clean up peer connection and data channel
