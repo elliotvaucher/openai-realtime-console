@@ -10,6 +10,7 @@
   },
   "routes": [
     { "src": "/api/token", "dest": "/api/token.js" },
+    { "src": "/socket.io/(.*)", "dest": "/server.js" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
 } 
