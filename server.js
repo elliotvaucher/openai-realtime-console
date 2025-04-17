@@ -1,22 +1,21 @@
 import express from "express";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
+import path from "path";
+import { fileURLToPath } from "url";
 import "dotenv/config";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = process.env.PORT || 3000;
 const apiKey = process.env.OPENAI_API_KEY;
 
-// Configure Vite middleware for React client
-const vite = await createViteServer({
-  server: { middlewareMode: true },
-  appType: "custom",
-});
-app.use(vite.middlewares);
-
 // API route for token generation
 app.get("/token", async (req, res) => {
   try {
+    if (!apiKey) {
+      return res.status(500).json({ error: "API key not configured" });
+    }
+    
     const response = await fetch(
       "https://api.openai.com/v1/realtime/sessions",
       {
@@ -40,25 +39,12 @@ app.get("/token", async (req, res) => {
   }
 });
 
-// Render the React client
-app.use("*", async (req, res, next) => {
-  const url = req.originalUrl;
+// Check if running in a local environment
+if (process.env.NODE_ENV !== 'production') {
+  // In development, start the server
+  app.listen(port, () => {
+    console.log(`Express server running on *:${port}`);
+  });
+}
 
-  try {
-    const template = await vite.transformIndexHtml(
-      url,
-      fs.readFileSync("./client/index.html", "utf-8"),
-    );
-    const { render } = await vite.ssrLoadModule("./client/entry-server.jsx");
-    const appHtml = await render(url);
-    const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html);
-    res.status(200).set({ "Content-Type": "text/html" }).end(html);
-  } catch (e) {
-    vite.ssrFixStacktrace(e);
-    next(e);
-  }
-});
-
-app.listen(port, () => {
-  console.log(`Express server running on *:${port}`);
-});
+export default app;
